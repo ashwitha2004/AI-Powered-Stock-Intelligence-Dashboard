@@ -47,11 +47,12 @@ function App() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchData(symbol);
     fetchInsights(symbol);
     fetchHistory();
-  }, [symbol, fetchData, fetchInsights, fetchHistory]);
+  }, [symbol]);
 
   // Chart config
   const chartData = {
