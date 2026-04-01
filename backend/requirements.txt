@@ -3,3 +3,4 @@ uvicorn
 pandas
 yfinance
 sqlalchemy
+psycopg2-binaryg
