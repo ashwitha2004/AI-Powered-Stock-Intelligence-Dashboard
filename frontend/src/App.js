@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import API from "./api";
 import { Line } from "react-chartjs-2";
 import {
@@ -15,45 +15,43 @@ function App() {
   const [symbol, setSymbol] = useState("INFY");
   const [data, setData] = useState([]);
   const [insights, setInsights] = useState(null);
-  const [history, setHistory] = useState([]); // 🔥 NEW
-
-  useEffect(() => {
-    fetchData(symbol);
-    fetchInsights(symbol);
-  }, [symbol]);
+  const [history, setHistory] = useState([]);
 
   // Fetch stock data
-  const fetchData = async (sym) => {
+  const fetchData = useCallback(async (sym) => {
     try {
       const res = await API.get(`/data/${sym}`);
       setData(res.data);
     } catch (err) {
       console.error("Error fetching data:", err);
     }
-  };
+  }, []);
 
-  
-  const fetchInsights = async (sym) => {
+  // Fetch insights
+  const fetchInsights = useCallback(async (sym) => {
     try {
       const res = await API.get(`/insights/${sym}`);
       setInsights(res.data);
-
-      // 🔥 IMPORTANT: fetch history AFTER saving happens
-      fetchHistory();
     } catch (err) {
       console.error("Error fetching insights:", err);
     }
-  };
+  }, []);
 
-  // 🔥 Fetch history
-  const fetchHistory = async () => {
+  // Fetch history
+  const fetchHistory = useCallback(async () => {
     try {
-      const res = await API.get(`/history`);
+      const res = await API.get("/history");
       setHistory(res.data);
     } catch (err) {
       console.error("Error fetching history:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData(symbol);
+    fetchInsights(symbol);
+    fetchHistory();
+  }, [symbol, fetchData, fetchInsights, fetchHistory]);
 
   // Chart config
   const chartData = {
@@ -72,7 +70,6 @@ function App() {
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "Arial" }}>
-      
       {/* Sidebar */}
       <div
         style={{
@@ -103,15 +100,15 @@ function App() {
       </div>
 
       {/* Chart Section */}
-      <div style={{ width: "55%", padding: "20px" }}>
+      <div style={{ width: "60%", padding: "20px" }}>
         <h2 style={{ marginBottom: "20px" }}>{symbol} Price Chart</h2>
         <Line data={chartData} />
       </div>
 
-      {/* Insights + History Panel */}
+      {/* Insights + History */}
       <div
         style={{
-          width: "25%",
+          width: "20%",
           background: "#f8fafc",
           padding: "20px",
           borderLeft: "1px solid #e2e8f0",
@@ -122,40 +119,46 @@ function App() {
 
         {insights ? (
           <>
-            <p><b>Trend:</b> {insights.Trend}</p>
-            <p><b>Risk:</b> {insights["Risk Level"]}</p>
-            <p><b>Volatility:</b> {insights.Volatility.toFixed(2)}</p>
-            <p><b>Recommendation:</b> {insights.Recommendation}</p>
+            <p>
+              <b>Trend:</b> {insights.Trend}
+            </p>
+            <p>
+              <b>Risk:</b> {insights["Risk Level"]}
+            </p>
+            <p>
+              <b>Volatility:</b>{" "}
+              {insights.Volatility ? insights.Volatility.toFixed(2) : "N/A"}
+            </p>
+            <p>
+              <b>Recommendation:</b> {insights.Recommendation}
+            </p>
           </>
         ) : (
           <p>Loading...</p>
         )}
 
-        {/* 🔥 HISTORY SECTION */}
+        {/* History Section */}
         <h3 style={{ marginTop: "30px" }}>History</h3>
 
-        {history.length > 0 ? (
+        {history.length === 0 ? (
+          <p>No history yet</p>
+        ) : (
           history.map((item, index) => (
             <div
               key={index}
               style={{
-                marginBottom: "15px",
-                padding: "10px",
-                borderRadius: "8px",
                 background: "#e2e8f0",
+                padding: "10px",
+                margin: "10px 0",
+                borderRadius: "8px",
               }}
             >
-              <strong>{item.symbol}</strong>
-              <br />
-              Close: {item.close.toFixed(2)}
-              <br />
-              Volatility: {item.volatility.toFixed(2)}
-              <br />
-              Trend: {item.trend}
+              <b>{item.symbol}</b>
+              <p>Close: {item.close.toFixed(2)}</p>
+              <p>Volatility: {item.volatility.toFixed(2)}</p>
+              <p>Trend: {item.trend}</p>
             </div>
           ))
-        ) : (
-          <p>No history yet</p>
         )}
       </div>
     </div>
