@@ -15,6 +15,7 @@ function App() {
   const [symbol, setSymbol] = useState("INFY");
   const [data, setData] = useState([]);
   const [insights, setInsights] = useState(null);
+  const [history, setHistory] = useState([]); // 🔥 NEW
 
   useEffect(() => {
     fetchData(symbol);
@@ -31,13 +32,26 @@ function App() {
     }
   };
 
-  // Fetch insights
+  
   const fetchInsights = async (sym) => {
     try {
       const res = await API.get(`/insights/${sym}`);
       setInsights(res.data);
+
+      // 🔥 IMPORTANT: fetch history AFTER saving happens
+      fetchHistory();
     } catch (err) {
       console.error("Error fetching insights:", err);
+    }
+  };
+
+  // 🔥 Fetch history
+  const fetchHistory = async () => {
+    try {
+      const res = await API.get(`/history`);
+      setHistory(res.data);
+    } catch (err) {
+      console.error("Error fetching history:", err);
     }
   };
 
@@ -58,6 +72,7 @@ function App() {
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "Arial" }}>
+      
       {/* Sidebar */}
       <div
         style={{
@@ -88,39 +103,59 @@ function App() {
       </div>
 
       {/* Chart Section */}
-      <div style={{ width: "60%", padding: "20px" }}>
+      <div style={{ width: "55%", padding: "20px" }}>
         <h2 style={{ marginBottom: "20px" }}>{symbol} Price Chart</h2>
         <Line data={chartData} />
       </div>
 
-      {/* Insights Panel */}
+      {/* Insights + History Panel */}
       <div
         style={{
-          width: "20%",
+          width: "25%",
           background: "#f8fafc",
           padding: "20px",
           borderLeft: "1px solid #e2e8f0",
+          overflowY: "auto",
         }}
       >
         <h2 style={{ marginBottom: "20px" }}>Insights</h2>
 
         {insights ? (
           <>
-            <p>
-              <b>Trend:</b> {insights.Trend}
-            </p>
-            <p>
-              <b>Risk:</b> {insights["Risk Level"]}
-            </p>
-            <p>
-              <b>Volatility:</b> {insights.Volatility.toFixed(2)}
-            </p>
-            <p>
-              <b>Recommendation:</b> {insights.Recommendation}
-            </p>
+            <p><b>Trend:</b> {insights.Trend}</p>
+            <p><b>Risk:</b> {insights["Risk Level"]}</p>
+            <p><b>Volatility:</b> {insights.Volatility.toFixed(2)}</p>
+            <p><b>Recommendation:</b> {insights.Recommendation}</p>
           </>
         ) : (
           <p>Loading...</p>
+        )}
+
+        {/* 🔥 HISTORY SECTION */}
+        <h3 style={{ marginTop: "30px" }}>History</h3>
+
+        {history.length > 0 ? (
+          history.map((item, index) => (
+            <div
+              key={index}
+              style={{
+                marginBottom: "15px",
+                padding: "10px",
+                borderRadius: "8px",
+                background: "#e2e8f0",
+              }}
+            >
+              <strong>{item.symbol}</strong>
+              <br />
+              Close: {item.close.toFixed(2)}
+              <br />
+              Volatility: {item.volatility.toFixed(2)}
+              <br />
+              Trend: {item.trend}
+            </div>
+          ))
+        ) : (
+          <p>No history yet</p>
         )}
       </div>
     </div>

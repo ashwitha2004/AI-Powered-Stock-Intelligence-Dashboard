@@ -3,17 +3,25 @@ import pandas as pd
 import yfinance as yf
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.database import engine, SessionLocal
+from app.models import Base, StockHistory   
+# Create tables
+Base.metadata.create_all(bind=engine)
+
 app = FastAPI()
+
+#  CORS (for React)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow all (safe for dev)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# Helper function (reuse your pipeline logic)
+# -------------------------------
+# Helper function
+# -------------------------------
 def get_processed_data(symbol):
     stock = yf.Ticker(f"{symbol}.NS")
     df = stock.history(period="1y")
@@ -30,7 +38,9 @@ def get_processed_data(symbol):
 
     return df
 
-
+# -------------------------------
+# Routes
+# -------------------------------
 @app.get("/")
 def home():
     return {"message": "StockMind API running 🚀"}
@@ -56,6 +66,10 @@ def get_summary(symbol: str):
         "52W Low": float(df["Close"].min()),
         "Average Close": float(df["Close"].mean())
     }
+
+# -------------------------------
+# INSIGHTS (UPDATED WITH DB)
+# -------------------------------
 @app.get("/insights/{symbol}")
 def get_insights(symbol: str):
     df = get_processed_data(symbol)
@@ -70,7 +84,7 @@ def get_insights(symbol: str):
     else:
         trend = "Downtrend 📉"
 
-    # Risk level
+    # Risk
     if volatility < 2:
         risk = "Low Risk"
     elif volatility < 5:
@@ -86,22 +100,38 @@ def get_insights(symbol: str):
     else:
         recommendation = "Hold 🟡"
 
+    # SAVE TO DATABASE
+    db = SessionLocal()
+
+    stock_entry = StockHistory(
+        symbol=symbol,
+        close=float(latest["Close"]),
+        volatility=float(volatility),
+        trend=trend
+    )
+
+    db.add(stock_entry)
+    db.commit()
+    db.close()
+
     return {
         "Trend": trend,
         "Volatility": float(volatility),
         "Risk Level": risk,
         "Recommendation": recommendation
     }
+
+# -------------------------------
+# COMPARE
+# -------------------------------
 @app.get("/compare")
 def compare_stocks(symbol1: str, symbol2: str):
     df1 = get_processed_data(symbol1)
     df2 = get_processed_data(symbol2)
 
-    # Safety check
     if df1 is None or df2 is None or len(df1) < 30 or len(df2) < 30:
         return {"error": "Not enough data to compare stocks"}
 
-    # Returns
     ret1 = (df1["Close"].iloc[-1] - df1["Close"].iloc[-30]) / df1["Close"].iloc[-30]
     ret2 = (df2["Close"].iloc[-1] - df2["Close"].iloc[-30]) / df2["Close"].iloc[-30]
 
@@ -121,3 +151,24 @@ def compare_stocks(symbol1: str, symbol2: str):
 
         "Winner": winner
     }
+
+# -------------------------------
+#HISTORY API
+# -------------------------------
+@app.get("/history")
+def get_history():
+    db = SessionLocal()
+
+    # Get latest records first
+    records = db.query(StockHistory).order_by(StockHistory.id.desc()).all()
+
+    # Remove duplicates (keep latest per stock)
+    seen = set()
+    unique = []
+
+    for r in records:
+        if r.symbol not in seen:
+            seen.add(r.symbol)
+            unique.append(r)
+
+    return unique
