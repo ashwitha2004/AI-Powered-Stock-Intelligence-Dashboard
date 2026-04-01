@@ -52,7 +52,7 @@ function App() {
     fetchData(symbol);
     fetchInsights(symbol);
     fetchHistory();
-  }, [symbol]);
+  }, [symbol, fetchData, fetchInsights, fetchHistory]);
 
   // Chart config
   const chartData = {
